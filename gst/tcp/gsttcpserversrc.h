@@ -57,7 +57,7 @@ struct _GstTCPServerSrc {
   int current_port;        /* currently bound-to port, or 0 */ /* ATOMIC */
   int server_port;         /* port property */
   gchar *host;             /* host property */
-  guint64 timeout;
+  int timeout;
   int getdata_flag;
   GCancellable *cancellable;
   GSocket *server_socket;

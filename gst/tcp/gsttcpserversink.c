@@ -42,7 +42,7 @@
 #include "gsttcp.h"
 #include "gsttcpserversink.h"
 
-#define TCP_BACKLOG             5
+#define TCP_BACKLOG             2  // wenfeng modify 5 -> 2
 
 GST_DEBUG_CATEGORY_STATIC (tcpserversink_debug);
 #define GST_CAT_DEFAULT (tcpserversink_debug)
@@ -52,7 +52,8 @@ enum
   PROP_0,
   PROP_HOST,
   PROP_PORT,
-  PROP_CURRENT_PORT
+  PROP_CURRENT_PORT,
+  CLIENT_TIMEOUT,  // wenfeng
 };
 
 static void gst_tcp_server_sink_finalize (GObject * gobject);
@@ -96,6 +97,7 @@ gst_tcp_server_sink_class_init (GstTCPServerSinkClass * klass)
           "The port to listen to (0=random available port)",
           0, TCP_HIGHEST_PORT, TCP_DEFAULT_PORT,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   /**
    * GstTCPServerSink:current-port:
    *
@@ -109,6 +111,14 @@ gst_tcp_server_sink_class_init (GstTCPServerSinkClass * klass)
       g_param_spec_int ("current-port", "current-port",
           "The port number the socket is currently bound to", 0,
           TCP_HIGHEST_PORT, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+ // vvv wenfeng
+ g_object_class_install_property (gobject_class, CLIENT_TIMEOUT,
+      g_param_spec_int ("client-connect-timeout", "Client-connect-timeout",
+          "Client connect timeout unit second",
+          0, 30, 0,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+// ^^^ wenfeng
 
   gst_element_class_set_static_metadata (gstelement_class,
       "TCP server sink", "Sink/Network",
@@ -162,6 +172,8 @@ gst_tcp_server_sink_handle_server_read (GstTCPServerSink * sink)
   if (!client_socket)
     goto accept_failed;
 
+  g_socket_set_timeout(sink->server_socket, 0);  // wenfeng  close timeout event
+
   handle.socket = client_socket;
   /* gst_multi_handle_sink_add does not take ownership of client_socket */
   gst_multi_handle_sink_add (GST_MULTI_HANDLE_SINK (sink), handle);
@@ -188,6 +200,20 @@ gst_tcp_server_sink_handle_server_read (GstTCPServerSink * sink)
   /* ERRORS */
 accept_failed:
   {
+// vvv wenfeng
+	if (g_error_matches (err, G_IO_ERROR, G_IO_ERROR_TIMED_OUT))
+	{
+		// printf("timeout error ======\n");
+
+		GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
+		    ("timeout error accept client on server socket %p: %s",
+		        sink->server_socket, err->message));
+		g_clear_error (&err);
+
+		return TRUE;
+	}
+// ^^^ wenfeng
+
     GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
         ("Could not accept client on server socket %p: %s",
             sink->server_socket, err->message));
@@ -250,6 +276,12 @@ gst_tcp_server_sink_set_property (GObject * object, guint prop_id,
     case PROP_PORT:
       sink->server_port = g_value_get_int (value);
       break;
+  	// vvv wenfeng
+ 	case CLIENT_TIMEOUT:
+      sink->client_connect_timeout = g_value_get_int (value);
+      break;
+	// ^^^ wenfeng
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -271,6 +303,12 @@ gst_tcp_server_sink_get_property (GObject * object, guint prop_id,
     case PROP_PORT:
       g_value_set_int (value, sink->server_port);
       break;
+	// vvv wenfeng
+	 case CLIENT_TIMEOUT:
+      g_value_set_int (value, sink->client_connect_timeout);
+      break;
+	// ^^^ wenfeng
+
     case PROP_CURRENT_PORT:
       g_value_set_int (value, g_atomic_int_get (&sink->current_port));
       break;
@@ -331,6 +369,10 @@ gst_tcp_server_sink_init_send (GstMultiHandleSink * parent)
       this->server_socket);
 
   g_socket_set_blocking (this->server_socket, FALSE);
+
+
+   g_socket_set_timeout(this->server_socket, this->client_connect_timeout);  // wenfeng
+
 
   /* bind it */
   GST_DEBUG_OBJECT (this, "binding server socket to address");

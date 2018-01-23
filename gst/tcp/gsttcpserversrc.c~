@@ -221,7 +221,7 @@ gst_tcp_server_src_create (GstPushSrc * psrc, GstBuffer ** outbuf)
     /* wait on server socket for connections */
   // wenfeng  add timeout event if no have client connection
 
-    printf("==333==% lld \n", src->timeout);
+  //  printf("==333==% lld \n", src->timeout);
 	//g_timeout_add_seconds(src->timeout,timeout_check ,src);
     if(src->timeout != 0)
 	{

@@ -62,7 +62,7 @@ struct _GstTCPServerSink {
   int current_port;        /* currently bound-to port, or 0 */ /* ATOMIC */
   int server_port;         /* port property */
   gchar *host;             /* host property */
-
+  int client_connect_timeout;
   GSocket *server_socket;
   GSource *server_source;
 };
