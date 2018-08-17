@@ -490,6 +490,7 @@ gst_tcp_client_sink_start (GstBaseSink * bsink)
 	// vvv wenfeng
   	GST_DEBUG_OBJECT (this," localip = %s \n", this->localip);
  	GST_DEBUG_OBJECT (this," localport = %d \n", this->localport);
+#if 0
      if(this->localport != 0  && this->JF_tcp_flag == 1)
 	  {
 
@@ -512,6 +513,9 @@ gst_tcp_client_sink_start (GstBaseSink * bsink)
 		}
 	}
 	// ^^^ wenfeng
+
+#endif
+
 	if(this->block == 0)
 	{
    		g_socket_set_blocking(this->socket,FALSE);
@@ -519,10 +523,13 @@ gst_tcp_client_sink_start (GstBaseSink * bsink)
 
   /* connect to server */	
 
+ 
+
   // vvv wenfeng
-	int count = 4;
+	int count = 10;
 	while(count--)
 	{
+		printf("try connect host  %s:%d \n", this->host, this->port );
 //if (!g_socket_connect (this->socket, saddr, this->cancellable, &err)) 
 		if (!g_socket_connect (this->socket, saddr, this->cancellable, &err))  // wenfeng need add 3 times connect
 		{
@@ -537,6 +544,8 @@ gst_tcp_client_sink_start (GstBaseSink * bsink)
 		}
 		else
 		{	
+			printf("connect successful \n" );
+			g_socket_set_blocking(this->socket,TRUE);    // First set to un-block mode , then set to block mode
 			break;
 		}
 		printf("sleep(1)\n");
@@ -576,9 +585,9 @@ connect_failed:
     if (g_error_matches (err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
       GST_DEBUG_OBJECT (this, "Cancelled connecting");
     } else {
-    //  GST_ELEMENT_ERROR (this, RESOURCE, OPEN_READ, (NULL),
-    //      ("Failed to connect to host '%s:%d': %s", this->host, this->port,
-    //          err->message));
+       GST_ELEMENT_ERROR (this, RESOURCE, OPEN_READ, (NULL),
+           ("Failed to connect to host '%s:%d': %s", this->host, this->port,                // wenfeng
+               err->message));
     }
     g_clear_error (&err);
     g_object_unref (saddr);
